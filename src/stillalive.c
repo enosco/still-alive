@@ -1,9 +1,9 @@
+#include <ncurses.h>
+#include <unistd.h>
+#include <string.h>
 #include <sys/time.h>
 #include <signal.h>
-#include <string.h>
-#include <ncurses.h>
 #include <pthread.h>
-#include <libc.h>
 #include "assets.h"
 
 typedef struct {
