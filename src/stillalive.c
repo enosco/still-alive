@@ -1,9 +1,9 @@
 #include <ncurses.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/time.h>
-#include <signal.h>
 #include <pthread.h>
+#include <signal.h>
+#include <sys/time.h>
 #include "assets.h"
 
 typedef struct {
@@ -19,15 +19,16 @@ void *animate_lyrics(void *thread_arg);
 void *animate_creds(void *thread_arg);
 void print_img(WINDOW *img_win);
 
-int main(int argc, char **argv) {    
-    initscr();
+int main(int argc, char **argv) {
 
-//    cbreak();
+    initscr();
+    //cbreak;
     curs_set(0);
-    start_color();    
+    start_color();
     
     int COLOR_ORANGE = 16;
     init_color(COLOR_ORANGE, 835, 600, 80);
+    init_color(COLOR_BLACK, 0,0,0);
     init_pair(1, COLOR_ORANGE, COLOR_BLACK);
     
     WINDOW *form_frame = newwin(30, 50, 0, 0);
@@ -46,7 +47,6 @@ int main(int argc, char **argv) {
     wattron(cred_pad, COLOR_PAIR(1));
     wattron(img_win, COLOR_PAIR(1));
 
-
     wborder(form_frame, '|', '|', '-', '-', ' ', ' ', ' ', ' ');
     wborder(cred_frame, '|', '|', '-', '-', ' ', ' ', ' ', ' ');    
 
@@ -56,21 +56,42 @@ int main(int argc, char **argv) {
     wrefresh(cred_frame);
     wrefresh(img_win);
 
-    WINDOW *lyrics_wins[] = {form_win, img_win};
+    /* SETUP INTERVAL TIMER AND SIGNAL HANDLER */
+    
+    int sig;
+    sigset_t set;
+    sigemptyset(&set);
+    sigaddset(&set, SIGALRM);
+
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
+    struct itimerval timer;
+    timer.it_value.tv_sec = 0;
+    timer.it_value.tv_usec = 100000;    
+    timer.it_interval = timer.it_value;  
+    setitimer(ITIMER_REAL, &timer, NULL);        
+
+    /* BEGIN THREADS */
+    print_img(img_win);
+    
     pthread_t tid_a;
     pthread_t tid_b;
-
-    pthread_mutex_init(&lock, NULL);
     
+    pthread_mutex_init(&lock, NULL);
+
+    WINDOW *lyrics_wins[] = {form_win, img_win};
     pthread_create(&tid_a, NULL, animate_lyrics, (void*)lyrics_wins);
+    
     pthread_create(&tid_b, NULL, animate_creds, (void*)cred_pad);
+    
     pthread_join(tid_a, NULL);
+    pthread_join(tid_b, NULL);
     
     while (getchar() != 'q') {}
     
     endwin();
     pthread_exit(NULL);
-    return 0;   
+    return 0;
 }
 
 void *animate_lyrics(void *thread_arg) {
@@ -78,22 +99,13 @@ void *animate_lyrics(void *thread_arg) {
     WINDOW *img_win = ((WINDOW **) thread_arg)[1];
 
     const char *forms[] = {FORM1, FORM2, FORM3, FORM4};
-    
-    struct itimerval timer;
-    timer.it_value.tv_sec = 0;
-    timer.it_value.tv_usec = 50000;
-
-    timer.it_interval = timer.it_value;  
-    setitimer(ITIMER_REAL, &timer, NULL);
-
+  
     int sig;
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, SIGALRM);
-    
-    sigprocmask(SIG_BLOCK, &set, NULL);
-
-    print_img(img_win);
+    pthread_sigmask(SIG_BLOCK, &set, NULL);    
+       
     for (int i = 0; i < 4; i++) {       
 	wclear(form_win);
 	
@@ -101,7 +113,6 @@ void *animate_lyrics(void *thread_arg) {
 	
 	while (*curr_form) {
 	    sigwait(&set, &sig);
-
 	    pthread_mutex_lock(&lock);
 	    waddch(form_win, *(curr_form++));	    
 	    wrefresh(form_win);
@@ -144,8 +155,12 @@ void *animate_lyrics(void *thread_arg) {
 void *animate_creds(void *thread_arg) {
     WINDOW *cred_pad = (WINDOW *) thread_arg;
     
+    int SLEEP_T = 100000;
+    int START_LINE = 11;
+    int SCROLL_C = 4;
+    
     for (int i = 0; i < 15; i++) { // limit is currently arbitrary
-	wmove(cred_pad, 5, 0);
+	wmove(cred_pad, START_LINE, 0);
 		
 	const char *creds = CREDITS_LOOP;
 	while (*creds) {
@@ -158,10 +173,10 @@ void *animate_creds(void *thread_arg) {
 	    
 	    pthread_mutex_unlock(&lock);
 	    
-	    usleep(50000);
+	    usleep(SLEEP_T);
 	}
 
-	for (int j = 0; j < 14; j++) { // 14 loops to clear 14 lines
+	for (int j = 0; j < SCROLL_C; j++) { // 14 loops to clear 14 lines
 	    pthread_mutex_lock(&lock);
 	    
 	    pechochar(cred_pad, '\n');
@@ -169,7 +184,7 @@ void *animate_creds(void *thread_arg) {
        
 	    pthread_mutex_unlock(&lock);
 	    
-	    usleep(50000); 
+	    usleep(SLEEP_T); 
 	}       
     }
     return NULL;
