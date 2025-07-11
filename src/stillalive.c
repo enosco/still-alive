@@ -81,7 +81,7 @@ const char *CREDITS_LOOP =
 void animate(WINDOW *form_win, WINDOW *img_win, WINDOW* cred_pad);
 void fade_to_black(WINDOW *form_frame, WINDOW *form_win, WINDOW *img_win,
 		   WINDOW *cred_frame, WINDOW *cred_pad);
-void display_quit_prompt();
+//void display_quit_prompt();
 void print_img(WINDOW *img_win, const char *img);
 void update_credits(WINDOW *cred_pad);
 void update_cursors(WINDOW *form_win, WINDOW *cred_pad);
@@ -137,11 +137,11 @@ int main(int argc, char **argv) {
     ma_sound_set_start_time_in_milliseconds(&sound, 5000);
     ma_sound_start(&sound);
 
-    //animate(form_win, img_win, cred_pad);
+    animate(form_win, img_win, cred_pad);
 
-    //fade_to_black(form_frame, form_win, img_win, cred_frame, cred_pad);
+    fade_to_black(form_frame, form_win, img_win, cred_frame, cred_pad);
 
-    display_quit_prompt();
+    // display_quit_prompt();
     
     while (getchar() != 'q') {}
     
@@ -307,6 +307,7 @@ void update_credits(WINDOW *cred_pad) {
     prefresh(cred_pad, 0, 0, 1, 52, 14, 98);    
 }
 
+/*
 void display_quit_prompt() {
     WINDOW *end_win = newwin(8, 40, 8, 30);
     wattron(end_win, COLOR_PAIR(1));
@@ -318,6 +319,7 @@ void display_quit_prompt() {
 
     wrefresh(end_win);
 }
+*/
 
 void print_img(WINDOW *img_win, const char *img_ptr) {
     wclear(img_win);
