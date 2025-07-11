@@ -1,4 +1,4 @@
-stillalive: stillalive.o assets.o miniaudio.o 
-	gcc -o stillalive stillalive.o assets.o miniaudio.o -lncurses
+stillalive: stillalive.o miniaudio.o 
+	gcc -o stillalive stillalive.o miniaudio.o -lncurses -lpthread -lm
 
-clean: ; rm stillalive stillalive.o miniaudio.o assets.o depend
+clean: ; rm stillalive stillalive.o miniaudio.o
