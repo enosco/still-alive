@@ -349,12 +349,22 @@ const char *CREDITS_LOOP =
     "ENRICHMENT CENTER ACTIVITY!!!\n";
 
 void animate(WINDOW *form_win, WINDOW *img_win, WINDOW* cred_pad);
+
 void fade_to_black(WINDOW *form_frame, WINDOW *form_win, WINDOW *img_win,
 		   WINDOW *cred_frame, WINDOW *cred_pad);
-//void display_quit_prompt();
-void print_img(WINDOW *img_win, const char *img);
+
+void refresh_all(WINDOW *form_frame, WINDOW *form_win, WINDOW *img_win,
+		  WINDOW *cred_frame, WINDOW *cred_pad);
+		 
+void refresh_text(WINDOW* form_win, WINDOW *cred_pad);
+		 
+void blink_cursors(WINDOW *form_win, WINDOW *cred_pan);
+
 void update_credits(WINDOW *cred_pad);
-void update_cursors(WINDOW *form_win, WINDOW *cred_pad);
+
+//void display_quit_prompt();
+
+void print_img(WINDOW *img_win, const char *img);
 
 int main(int argc, char **argv) {
 
@@ -455,7 +465,9 @@ void animate(WINDOW *form_win, WINDOW *img_win, WINDOW* cred_pad) {
 		sigwait(&set, &sig);
 		line.wait_for--;
 		update_credits(cred_pad);
-		update_cursors(form_win, cred_pad);
+		blink_cursors(form_win, cred_pad);
+
+		refresh_text(form_win, cred_pad);
 	    }
 	    
 	    if (curr_img != line.img_ptr) {      
@@ -473,8 +485,9 @@ void animate(WINDOW *form_win, WINDOW *img_win, WINDOW* cred_pad) {
 		sigwait(&set, &sig);	       
 		pechochar(form_win, *(text++));
 		update_credits(cred_pad);		
-		update_cursors(form_win, cred_pad);
-		wrefresh(form_win);
+		blink_cursors(form_win, cred_pad);
+
+		refresh_text(form_win, cred_pad);
 	    }
 	    
 	    line = *(++curr_form);
@@ -507,49 +520,43 @@ void fade_to_black(WINDOW *form_frame,
     setitimer(ITIMER_REAL, &timer, NULL);        
       
     int FADE_COLOR = 18;
-
+    
     float weight = 1.0;
     while (weight > 0) {
 	sigwait(&set, &sig);
-
+	
 	// multiplying rgb values by weight
 	// progressively darkens the original orange
-	//init_color(FADE_COLOR, r*weight, g*weight, b*weight);
 	init_color(FADE_COLOR, RED_VALUE*weight, GREEN_VALUE*weight, BLUE_VALUE*weight);
 	init_pair(2, FADE_COLOR, COLOR_BLACK);
 	
 	// apply updated color to everything
 	wattron(form_frame, COLOR_PAIR(2));
 	wattron(form_win, COLOR_PAIR(2));
+	
 	wattron(cred_frame, COLOR_PAIR(2));
 	wattron(cred_pad, COLOR_PAIR(2));
-	wattron(img_win, COLOR_PAIR(2));
 	
+	wattron(img_win, COLOR_PAIR(2));
 	// should i have to reprint the art every time to update the color?
 	print_img(img_win, APERTURE);
-
-	update_credits(cred_pad);
-	update_cursors(form_win, cred_pad);
 	
 	// redraw borders to update their color too
 	wborder(form_frame, '|', '|', '-', '-', ' ', ' ', ' ', ' ');
 	wborder(cred_frame, '|', '|', '-', '-', ' ', ' ', ' ', ' ');    
 	
-	mvwprintw(form_win, 0,0, "%f", weight);
+	update_credits(cred_pad);
+	blink_cursors(form_win, cred_pad);
 	
+	refresh_all(form_frame, form_win, img_win, cred_frame, cred_pad);
 	wrefresh(img_win);
-	wrefresh(form_frame);
-	wrefresh(form_win);
-	wrefresh(cred_frame);
-
 	
 	weight -= 0.005;
     }
 }
 
-void update_cursors(WINDOW *form_win, WINDOW *cred_pad) {
+void blink_cursors(WINDOW *form_win, WINDOW *cred_pad) {
     static const char cursors[2] = {'_', ' '};
-//    static const int blink_threshold = (USECS_IN_SEC / 4) / DEFAULT_TICKRATE_USEC;
     static int curs_i = 0;
     static int blink_counter = 0;
     
@@ -558,27 +565,21 @@ void update_cursors(WINDOW *form_win, WINDOW *cred_pad) {
     // update cursor for form
     getyx(form_win, y, x);
 
-    wechochar(form_win, cursors[curs_i]);
+    waddch(form_win, cursors[curs_i]);
     wmove(form_win, y, x);
-    wrefresh(form_win);
-
-
-    // TODO: Fix stray underscore that gets left
-    // behind when newlines are printed 
     
     // update cursor for credits
     getyx(cred_pad, y, x);
     
-    wechochar(cred_pad, cursors[curs_i ^ 1]);
+    waddch(cred_pad, cursors[curs_i ^ 1]);
     wmove(cred_pad, y, x);
-    prefresh(cred_pad, 0, 0, 1, 52, 14, 98);
-    
+        
     if (blink_counter > BLINK_THRESHOLD) {
 	blink_counter = 0;
 	curs_i = curs_i ^ 1;
     } else {
 	blink_counter++;
-    }    
+    }
 }
 
 void update_credits(WINDOW *cred_pad) {
@@ -588,11 +589,11 @@ void update_credits(WINDOW *cred_pad) {
     char cred_char = CREDITS_LOOP[cursor];
     
     if (cred_char) {
-	pechochar(cred_pad, cred_char);
+	waddch(cred_pad, cred_char);
 	cursor++;
     } else {
 	if (scroll_d > 0) {
-	    pechochar(cred_pad, '\n');
+	    waddch(cred_pad, '\n');
 	    scroll_d--;		    
 	} else {
 	    wmove(cred_pad, CREDITS_START_LINE, 0);
@@ -600,8 +601,6 @@ void update_credits(WINDOW *cred_pad) {
 	    scroll_d = CREDITS_SCROLL_COUNT;
 	}
     }
-   
-    prefresh(cred_pad, 0, 0, 1, 52, 14, 98);    
 }
 
 /*
@@ -619,7 +618,27 @@ void display_quit_prompt() {
 */
 
 void print_img(WINDOW *img_win, const char *img_ptr) {
-    wclear(img_win);
+    //wclear(img_win);
     mvwprintw(img_win, 0, 0, "%s", img_ptr);
     wrefresh(img_win);
+}
+
+void refresh_all(WINDOW *form_frame, WINDOW *form_win, WINDOW *img_win,
+		 WINDOW *cred_frame, WINDOW *cred_pad) {
+
+    wnoutrefresh(form_frame);
+    wnoutrefresh(form_win);
+    
+    wnoutrefresh(cred_frame);
+    pnoutrefresh(cred_pad, 0, 0, 1, 52, 14, 98);
+    
+    wnoutrefresh(img_win);
+    
+    doupdate();	
+}
+		 
+void refresh_text(WINDOW* form_win, WINDOW *cred_pad) {
+    wnoutrefresh(form_win);
+    pnoutrefresh(cred_pad, 0, 0, 1, 52, 14, 98);
+    doupdate();	
 }
